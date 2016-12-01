@@ -10,7 +10,7 @@ import urllib2
 import datetime as dt
 
 
-def ts_get(metric, start, end, tags='', agg='avg', rate=False, downsample='', hostname='localhost', port=4242, trim=True):
+def ts_get(metric, start, end, tags='', agg='avg', rate=False, downsample='', hostname='spui.grid.sara.nl', port=4242, trim=True):
   """
   This function returns a Python's Pandas Timeseries object with data fetched from OpenTSDB basing on the provided parameters.
   If there are no results it returns an empty Pandas Series, in case of any other exception it throws that exception.
@@ -41,9 +41,15 @@ def ts_get(metric, start, end, tags='', agg='avg', rate=False, downsample='', ho
   ti = [dt.datetime.fromtimestamp(int(x.split(' ')[1])) for x in answer_by_line]
   val = [float(x.split(' ')[2]) for x in answer_by_line]
   ts = pd.Series(val, ti)
+  hst={}
+  try:
+    hst['timestamp']=ti[0]
+    hst['host']=x.split(' ')[3]
+  except:
+    pass
   if trim:
     ts = ts.ix[(ts.index >= start) & (ts.index <= end)]
-  return ts
+  return ts,hst
 
 def dropcaches(hostname='localhost', port=4242):
   """
