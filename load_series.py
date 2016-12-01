@@ -120,16 +120,16 @@ def align_series_at_zero(series):
     s = series.groupby(series.index).first()  # Removes duplicates for concat
     return (s, start_time)
 
-def make_single_metric_dataframe(list_s,list_t=None):
+def make_single_metric_dataframe(list_s,list_t=None,key='timestamp'):
     '''takes in a list of all time series and concatenates them
        into a dataframe where the keys are a list of timestamps
     '''
     if not list_t:
-        list_t = [i[1][0] for i in list_s] #TODO: No longer series(dict?)
+        list_t = [i[1][key] for i in list_s] #TODO: No longer series(dict?)
         list_s = [i[0] for i in list_s]
     else:
-        list_s = [i for i in list_s]
-        list_t = [i[0] for i in list_t]
+        list_s = [i[0] for i in list_s]
+        list_t = [i[key] for i in list_t]
     df = pd.concat(list_s, axis=1, keys=list_t)
     return df
 
@@ -169,7 +169,7 @@ def mk_df_from_step_metric(stepname,metric,trimmed_file):
             continue
         if len(temp_s)>0:
             temp_hash = hash(str(temp_h['timestamp']) + str(temp_h['host']) + str(step))
-            hosts.append([temp_hash, temp_h]) # Create hash here
+            hosts.append(temp_h) # Create hash here
             series.append(align_series_at_zero(temp_s))
     df = make_single_metric_dataframe(series, hosts)
     return df,hosts
