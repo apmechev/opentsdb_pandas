@@ -203,12 +203,12 @@ def mk_host_metric_df_from_step_df(step_df,hostmetric,hostdict):
 
 #PLOTTING
 
-def plot_length_step(df,statname='stats.stime'):
+def plot_length_step(df,statname='stat.stime'):
     """Plots the lengths of time the executables took to complete
        for a step
     """
-    for s in df.keys()[0]:
-        df[s].count().plot()
+    for s in df[statname].keys(): # Match timestamp and value to plot
+        df[statname][s].count().plot()
     plt.title('Length of runs for the step')
     plt.xlabel('date of exe run')
     plt.ylabel('run length (s)')
