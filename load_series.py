@@ -197,9 +197,12 @@ def mk_host_metric_df_from_step_df(step_df,hostmetric,hostdict):
         else:
             run_length=step_df['io.syscw'][key].count()
         tmp,d=get_host_series(hostmetric,hostdict[key]['host'],hostdict[key]['timestamp'],run_length)
-        list_ts.append([tmp[0],key])
-    return list_ts
-####ALIGN!
+        list_ts.append([align_series_at_zero(tmp,hostdict[key]['timestamp']),key])
+    df1=make_single_metric_dataframe(list_ts) 
+    return df1
+
+
+
 
 
 
