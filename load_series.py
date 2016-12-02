@@ -118,7 +118,7 @@ def align_series_at_zero(series):
     j = [ float("%09.2f" % ((i - j[0]) * 60 * 60 * 24)) for i in j]
     series.index = j
     s = series.groupby(series.index).first()  # Removes duplicates for concat
-    return (s, start_time)
+    return s
 
 
 def make_single_metric_dataframe(list_s,list_t=None,key='timestamp'):
@@ -129,8 +129,8 @@ def make_single_metric_dataframe(list_s,list_t=None,key='timestamp'):
         list_t = [i[1][key] for i in list_s] #TODO: No longer series(dict?)
         list_s = [i[0] for i in list_s]
     else:
-        list_s = [i[0] for i in list_s]
-        list_t = [i[key] for i in list_t]
+        list_s = [i for i in list_s]
+        list_t = [i for i in list_t]
     df = pd.concat(list_s, axis=1, keys=list_t)
     return df
 
@@ -145,13 +145,13 @@ def mk_df_all_metrics(stepname,trimmed_file):
     hosts = {}
     for metric in ms:  #This may need multithreading
         print "Creating a frame for metric "+metric
-        m = mk_df_from_step_metric(stepname, metric, trimmed_file)
-        frames[metric]=m[0]
-        h.append(m[1])
+        d,hos = mk_df_from_step_metric(stepname, metric, trimmed_file)
+        frames[metric]=d
+        h.append(hos)
     final = pd.concat(frames, axis=1) 
     for m in h:
         for t in m:
-            hosts[t[t.keys()[0]]] = t[t.keys()[1]]
+            hosts[t]=m[t]
     return final,hosts
 
 
@@ -163,6 +163,7 @@ def mk_df_from_step_metric(stepname,metric,trimmed_file):
     series = []
     times = []
     hosts = []
+    hostdict={}
     for step in inst:
         try:
             temp_s,temp_h = get_time_series(str(step) + "." + str(metric))
@@ -170,10 +171,11 @@ def mk_df_from_step_metric(stepname,metric,trimmed_file):
             continue
         if len(temp_s)>0:
             temp_hash = hash(str(temp_h['timestamp']) + str(temp_h['host']) + str(step))
-            hosts.append(temp_h) # Create hash here
+            hosts.append(temp_hash) 
+            hostdict[temp_hash]=temp_h #links a hash to metadata
             series.append(align_series_at_zero(temp_s))
     df = make_single_metric_dataframe(series, hosts)
-    return df,hosts
+    return df,hostdict
 
 
 def get_host_series(metric_name,host,ts,tdelta):
