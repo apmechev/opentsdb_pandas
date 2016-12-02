@@ -106,19 +106,19 @@ def get_time_series(metric_name):
     return series
 
 
-def align_series_at_zero(series):
+def align_series_at_zero(series,start=None):
     """As each run starts at a different time, to put everything in 
        the same DataFrame, the indices need to align. This aligns all 
        runs to start at 0.00 seconds, BUT keeps their start time to allow
        extraction of global metrics
     """
-    start_time = series.index[0]
     idx = series.index
     j = idx.to_julian_date()
-    j = [ float("%09.2f" % ((i - j[0]) * 60 * 60 * 24)) for i in j]
+    start_time=j[0] if not start else pd.Timestamp(start).to_julian_date()
+    j = [ float("%09.2f" % ((i - start_time) * 60 * 60 * 24)) for i in j]
     series.index = j
     s = series.groupby(series.index).first()  # Removes duplicates for concat
-    return s
+    return s[0:]
 
 
 def make_single_metric_dataframe(list_s,list_t=None,key='timestamp'):
@@ -126,7 +126,7 @@ def make_single_metric_dataframe(list_s,list_t=None,key='timestamp'):
        into a dataframe where the keys are a list of timestamps
     '''
     if not list_t:
-        list_t = [i[1][key] for i in list_s] #TODO: No longer series(dict?)
+        list_t = [i[1] for i in list_s] #TODO: No longer series(dict?)
         list_s = [i[0] for i in list_s]
     else:
         list_s = [i for i in list_s]
@@ -193,11 +193,13 @@ def mk_host_metric_df_from_step_df(step_df,hostmetric,hostdict):
     list_ts=[]
     for key in step_df['mem.shr-pgs'].keys():
         if not isinstance(step_df['io.syscw'][key].count(),int):
-            run_length=max(step_df['io.syscw'][key].count())
+            run_length=max(step_df['io.syscw'][key].count()) #used to fix multiplicate keys
         else:
             run_length=step_df['io.syscw'][key].count()
-        list_ts.append(get_host_series(hostmetric,hostdict[key],key,run_length))
+        tmp,d=get_host_series(hostmetric,hostdict[key]['host'],hostdict[key]['timestamp'],run_length)
+        list_ts.append([tmp[0],key])
     return list_ts
+####ALIGN!
 
 
 
