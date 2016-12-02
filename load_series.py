@@ -120,6 +120,7 @@ def align_series_at_zero(series):
     s = series.groupby(series.index).first()  # Removes duplicates for concat
     return (s, start_time)
 
+
 def make_single_metric_dataframe(list_s,list_t=None,key='timestamp'):
     '''takes in a list of all time series and concatenates them
        into a dataframe where the keys are a list of timestamps
@@ -139,15 +140,15 @@ def mk_df_all_metrics(stepname,trimmed_file):
        time period along the column
     '''
     ms = get_all_metrics_for_step(stepname, trimmed_file)
-    frames = []
+    frames = {}
     h = []
     hosts = {}
     for metric in ms:  #This may need multithreading
         print "Creating a frame for metric "+metric
         m = mk_df_from_step_metric(stepname, metric, trimmed_file)
-        frames.append(m[0])
+        frames[metric]=m[0]
         h.append(m[1])
-    final = pd.concat(frames, axis=1, keys=ms) 
+    final = pd.concat(frames, axis=1) 
     for m in h:
         for t in m:
             hosts[t[t.keys()[0]]] = t[t.keys()[1]]
