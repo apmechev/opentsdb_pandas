@@ -64,7 +64,7 @@ def get_host_metrics(filename):
     h_steps = []
     with open(filename, 'r') as st_file:
         for line in st_file:
-            if 'metrics' in line and 'exe' not in line:
+            if 'metrics' in line and 'exe' not in line and 'net' not in line and not 'tcollector' in line:
                 h_steps.append(line.split()[0])
     return list(set(h_steps))
 
@@ -196,17 +196,27 @@ def mk_host_metric_df_from_step_df(step_df,hostmetric,hostdict):
             run_length=max(step_df['io.syscw'][key].count()) #used to fix multiplicate keys
         else:
             run_length=step_df['io.syscw'][key].count()
-        tmp,d=get_host_series(hostmetric,hostdict[key]['host'],hostdict[key]['timestamp'],run_length)
-        list_ts.append([align_series_at_zero(tmp,hostdict[key]['timestamp']),key])
+        try:
+            tmp,d=get_host_series(hostmetric,hostdict[key]['host'],hostdict[key]['timestamp'],run_length)
+            list_ts.append([align_series_at_zero(tmp,hostdict[key]['timestamp']),key])
+        except ValueError:
+            continue
+    if len(list_ts)==0:
+        return pd.DataFrame({'A' : [0]})
     df1=make_single_metric_dataframe(list_ts) 
     return df1
 
 
 
-
-
-
-
+def mk_all_host_df_from_step_df(step_df, hostdict,trimmed_file):
+    hs = get_host_metrics(trimmed_file)  
+    frames = {}
+    for host_metric in hs:
+        print "Creating a frame for metric " + host_metric
+        d = mk_host_metric_df_from_step_df(step_df,host_metric, hostdict)
+        frames[host_metric]=d
+    final = pd.concat(frames, axis=1)
+    return final
 
 #PLOTTING
 
