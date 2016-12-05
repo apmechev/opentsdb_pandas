@@ -64,7 +64,7 @@ def get_host_metrics(filename):
     h_steps = []
     with open(filename, 'r') as st_file:
         for line in st_file:
-            if 'metrics' in line and 'exe' not in line:
+            if 'metrics' in line and 'exe' not in line and 'net' not in line and not 'tcollector' in line:
                 h_steps.append(line.split()[0])
     return list(set(h_steps))
 
@@ -106,19 +106,19 @@ def get_time_series(metric_name):
     return series
 
 
-def align_series_at_zero(series):
+def align_series_at_zero(series,start=None):
     """As each run starts at a different time, to put everything in 
        the same DataFrame, the indices need to align. This aligns all 
        runs to start at 0.00 seconds, BUT keeps their start time to allow
        extraction of global metrics
     """
-    start_time = series.index[0]
     idx = series.index
     j = idx.to_julian_date()
-    j = [ float("%09.2f" % ((i - j[0]) * 60 * 60 * 24)) for i in j]
+    start_time=j[0] if not start else pd.Timestamp(start).to_julian_date()
+    j = [ float("%09.2f" % ((i - start_time) * 60 * 60 * 24)) for i in j]
     series.index = j
     s = series.groupby(series.index).first()  # Removes duplicates for concat
-    return (s, start_time)
+    return s[0:]
 
 
 def make_single_metric_dataframe(list_s,list_t=None,key='timestamp'):
@@ -126,11 +126,11 @@ def make_single_metric_dataframe(list_s,list_t=None,key='timestamp'):
        into a dataframe where the keys are a list of timestamps
     '''
     if not list_t:
-        list_t = [i[1][key] for i in list_s] #TODO: No longer series(dict?)
+        list_t = [i[1] for i in list_s] #TODO: No longer series(dict?)
         list_s = [i[0] for i in list_s]
     else:
-        list_s = [i[0] for i in list_s]
-        list_t = [i[key] for i in list_t]
+        list_s = [i for i in list_s]
+        list_t = [i for i in list_t]
     df = pd.concat(list_s, axis=1, keys=list_t)
     return df
 
@@ -145,13 +145,13 @@ def mk_df_all_metrics(stepname,trimmed_file):
     hosts = {}
     for metric in ms:  #This may need multithreading
         print "Creating a frame for metric "+metric
-        m = mk_df_from_step_metric(stepname, metric, trimmed_file)
-        frames[metric]=m[0]
-        h.append(m[1])
+        d,hos = mk_df_from_step_metric(stepname, metric, trimmed_file)
+        frames[metric]=d
+        h.append(hos)
     final = pd.concat(frames, axis=1) 
     for m in h:
         for t in m:
-            hosts[t[t.keys()[0]]] = t[t.keys()[1]]
+            hosts[t]=m[t]
     return final,hosts
 
 
@@ -163,6 +163,7 @@ def mk_df_from_step_metric(stepname,metric,trimmed_file):
     series = []
     times = []
     hosts = []
+    hostdict={}
     for step in inst:
         try:
             temp_s,temp_h = get_time_series(str(step) + "." + str(metric))
@@ -170,10 +171,11 @@ def mk_df_from_step_metric(stepname,metric,trimmed_file):
             continue
         if len(temp_s)>0:
             temp_hash = hash(str(temp_h['timestamp']) + str(temp_h['host']) + str(step))
-            hosts.append(temp_h) # Create hash here
+            hosts.append(temp_hash) 
+            hostdict[temp_hash]=temp_h #links a hash to metadata
             series.append(align_series_at_zero(temp_s))
     df = make_single_metric_dataframe(series, hosts)
-    return df,hosts
+    return df,hostdict
 
 
 def get_host_series(metric_name,host,ts,tdelta):
@@ -191,15 +193,30 @@ def mk_host_metric_df_from_step_df(step_df,hostmetric,hostdict):
     list_ts=[]
     for key in step_df['mem.shr-pgs'].keys():
         if not isinstance(step_df['io.syscw'][key].count(),int):
-            run_length=max(step_df['io.syscw'][key].count())
+            run_length=max(step_df['io.syscw'][key].count()) #used to fix multiplicate keys
         else:
             run_length=step_df['io.syscw'][key].count()
-        list_ts.append(get_host_series(hostmetric,hostdict[key],key,run_length))
-    return list_ts
+        try:
+            tmp,d=get_host_series(hostmetric,hostdict[key]['host'],hostdict[key]['timestamp'],run_length)
+            list_ts.append([align_series_at_zero(tmp,hostdict[key]['timestamp']),key])
+        except ValueError:
+            continue
+    if len(list_ts)==0:
+        return pd.DataFrame({'A' : [0]})
+    df1=make_single_metric_dataframe(list_ts) 
+    return df1
 
 
 
-
+def mk_all_host_df_from_step_df(step_df, hostdict,trimmed_file):
+    hs = get_host_metrics(trimmed_file)  
+    frames = {}
+    for host_metric in hs:
+        print "Creating a frame for metric " + host_metric
+        d = mk_host_metric_df_from_step_df(step_df,host_metric, hostdict)
+        frames[host_metric]=d
+    final = pd.concat(frames, axis=1)
+    return final
 
 #PLOTTING
 
