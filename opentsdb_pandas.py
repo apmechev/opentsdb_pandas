@@ -51,6 +51,35 @@ def ts_get(metric, start, end, tags='', agg='avg', rate=False, downsample='', ho
     ts = ts.ix[(ts.index >= start) & (ts.index <= end)]
   return ts,hst
 
+
+def process_ts_list(tslist):
+    if not tslist:
+        return pd.Series(),{}
+    ti = [dt.datetime.fromtimestamp(int(x.split(' ')[1])) for x in tslist]
+    val = [float(x.split(' ')[2]) for x in tslist]
+    ts = pd.Series(val, ti)
+    hst={}
+    try:
+        hst['timestamp']=ti[0]
+        hst['host']=x.split(' ')[3]
+    except:
+        pass
+    if trim:
+        ts = ts.ix[(ts.index >= start) & (ts.index <= end)]
+    return ts,hst
+
+
+def get_series_from_file(metric_name,out_file,tags=[]):
+    results=None
+    g=subprocess.Popen(["grep",metric,out_file],stdout=subprocess.PIPE)
+    results=g.communicate()[0].split('\n')
+    trimmed_results=[]
+    for line in results: #TODO: filter by tags as well
+        if 'put' in line and all(tag in line for tag in tags):
+            trimmed_results.append(line.split('put ')[1])
+    return trimmed_results
+
+
 def dropcaches(hostname='localhost', port=4242):
   """
   This function drops caches in OpenTSDB. It returns True if caches were dropped and False otherwise.
