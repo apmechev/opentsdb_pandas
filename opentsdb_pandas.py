@@ -37,18 +37,8 @@ def ts_get(metric, start, end, tags='', agg='avg', rate=False, downsample='', ho
   if answer:
     answer_by_line = answer.split('\n')
   else:
-    return pd.Series()
-  ti = [dt.datetime.fromtimestamp(int(x.split(' ')[1])) for x in answer_by_line]
-  val = [float(x.split(' ')[2]) for x in answer_by_line]
-  ts = pd.Series(val, ti)
-  hst={}
-  try:  #Rounding necessary when creating hash for several metrics of same step
-    hst['timestamp']=pd.Timestamp(long(round(ti[0].value,-9)))
-    hst['host']=x.split(' ')[3]
-  except:
-    pass
-  if trim:
-    ts = ts.ix[(ts.index >= start) & (ts.index <= end)]
+    return pd.Series(),{}
+  ts,hst=process_ts_list(answer_by_line,trim=False)
   return ts,hst
 
 
@@ -60,10 +50,10 @@ def process_ts_list(tslist,trim=False):
     ts = pd.Series(val, ti)
     hst={}
     try:
-        hst['timestamp']=pd.Timestamp(long(round(pd.Timestamp(ti[0]).value,-9)))
+        hst['timestamp']=pd.Timestamp(long(round(ts.keys()[0].value,-9)))
         hst['host']=x.split(' ')[3]
     except:
-        pass
+        print ts.keys()[0]
     if trim:
         ts = ts.ix[(ts.index >= start) & (ts.index <= end)]
     return ts,hst
