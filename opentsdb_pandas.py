@@ -8,7 +8,7 @@ This module provides methods to fetch data from OpenTSDB HTTP interface and conv
 import pandas as pd
 import urllib2
 import datetime as dt
-
+import subprocess
 
 def ts_get(metric, start, end, tags='', agg='avg', rate=False, downsample='', hostname='spui.grid.sara.nl', port=4242, trim=True):
   """
@@ -42,8 +42,8 @@ def ts_get(metric, start, end, tags='', agg='avg', rate=False, downsample='', ho
   val = [float(x.split(' ')[2]) for x in answer_by_line]
   ts = pd.Series(val, ti)
   hst={}
-  try:
-    hst['timestamp']=ti[0]
+  try:  #Rounding necessary when creating hash for several metrics of same step
+    hst['timestamp']=pd.Timestamp(long(round(ti[0].value,-9)))
     hst['host']=x.split(' ')[3]
   except:
     pass
@@ -52,15 +52,15 @@ def ts_get(metric, start, end, tags='', agg='avg', rate=False, downsample='', ho
   return ts,hst
 
 
-def process_ts_list(tslist):
+def process_ts_list(tslist,trim=False):
     if not tslist:
         return pd.Series(),{}
-    ti = [dt.datetime.fromtimestamp(int(x.split(' ')[1])) for x in tslist]
+    ti = [dt.datetime.fromtimestamp(int(x.split(' ')[1])/1000.) for x in tslist]
     val = [float(x.split(' ')[2]) for x in tslist]
     ts = pd.Series(val, ti)
     hst={}
     try:
-        hst['timestamp']=ti[0]
+        hst['timestamp']=pd.Timestamp(long(round(pd.Timestamp(ti[0]).value,-9)))
         hst['host']=x.split(' ')[3]
     except:
         pass
@@ -71,7 +71,7 @@ def process_ts_list(tslist):
 
 def get_series_from_file(metric_name,out_file,tags=[]):
     results=None
-    g=subprocess.Popen(["grep",metric,out_file],stdout=subprocess.PIPE)
+    g=subprocess.Popen(["grep",metric_name,out_file],stdout=subprocess.PIPE)
     results=g.communicate()[0].split('\n')
     trimmed_results=[]
     for line in results: #TODO: filter by tags as well
